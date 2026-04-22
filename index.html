@@ -1,0 +1,1025 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tiny Hands Big Hearts Daycare – Book Care</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+<!--
+  ================================================================
+  SETUP INSTRUCTIONS — read config.js for all API keys/settings
+  ================================================================
+  1. PayPal:  Get Client ID → https://developer.paypal.com
+  2. Square:  Get App ID & Location ID → https://developer.squareup.com
+  3. Formspree: Create form → https://formspree.io (free tier works)
+  4. Edit config.js with your credentials before deploying
+  ================================================================
+-->
+<script src="config.js"></script>
+
+<!-- PayPal SDK — loaded dynamically in JS after config is read -->
+<!-- Square Web Payments SDK -->
+<script src="https://web.squarecdn.com/v1/square.js"></script>
+
+<style>
+  :root {
+    --sky: #5bc8f5;
+    --sun: #ffd700;
+    --grass: #4caf50;
+    --red: #e53935;
+    --cream: #fffde7;
+    --brown: #6d4c41;
+    --white: #ffffff;
+    --shadow: rgba(0,0,0,0.15);
+    --paypal-blue: #003087;
+    --cashapp-green: #00D632;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Nunito', sans-serif;
+    background: linear-gradient(180deg, var(--sky) 0%, #b3e5fc 40%, #c8e6c9 70%, var(--grass) 100%);
+    min-height: 100vh;
+    padding-bottom: 60px;
+  }
+
+  /* ── HEADER ── */
+  header {
+    background: linear-gradient(135deg, var(--sky) 0%, #29b6f6 100%);
+    text-align: center;
+    padding: 18px 16px 10px;
+    position: relative;
+    border-bottom: 5px solid var(--sun);
+    box-shadow: 0 4px 16px var(--shadow);
+  }
+  header .hearts { color: var(--red); font-size: 1.1em; }
+  header h1 {
+    font-family: 'Fredoka One', cursive;
+    color: var(--sun);
+    font-size: 2.2em;
+    text-shadow: 3px 3px 0 var(--brown);
+    line-height: 1.1;
+  }
+  header p { color: var(--white); font-weight: 700; font-size: 1em; margin-top: 4px; text-shadow: 1px 1px 0 rgba(0,0,0,0.3); }
+  .sun-icon {
+    position: absolute; top: 12px; right: 18px;
+    width: 52px; height: 52px;
+    background: var(--sun);
+    border-radius: 50%;
+    box-shadow: 0 0 0 8px rgba(255,215,0,0.3);
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.08)} }
+
+  /* ── STEPS BAR ── */
+  .steps-bar { display: flex; justify-content: center; padding: 14px 10px 0; }
+  .step-item { display: flex; flex-direction: column; align-items: center; flex: 1; max-width: 100px; position: relative; }
+  .step-item:not(:last-child)::after {
+    content:''; position: absolute; top: 18px; left: 60%; width: 80%; height: 3px;
+    background: rgba(255,255,255,0.5); z-index: 0;
+  }
+  .step-num {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: rgba(255,255,255,0.4);
+    border: 3px solid rgba(255,255,255,0.7);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Fredoka One', cursive; font-size: 1.1em; color: var(--white);
+    position: relative; z-index: 1; transition: all 0.3s;
+  }
+  .step-item.active .step-num { background: var(--sun); color: var(--brown); border-color: var(--sun); box-shadow: 0 0 12px rgba(255,215,0,0.6); }
+  .step-item.done .step-num { background: var(--grass); border-color: #388e3c; }
+  .step-label { font-size: 0.65em; font-weight: 700; color: rgba(255,255,255,0.85); margin-top: 4px; text-align: center; }
+
+  /* ── CARDS ── */
+  .card {
+    background: var(--cream); border-radius: 24px;
+    margin: 18px 14px 0; padding: 22px 18px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+    border: 3px solid rgba(255,255,255,0.8);
+    display: none; animation: slideIn 0.35s ease;
+  }
+  .card.active { display: block; }
+  @keyframes slideIn { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+  .card-title { font-family: 'Fredoka One', cursive; font-size: 1.5em; color: var(--red); text-align: center; margin-bottom: 18px; }
+  .card-title span { color: var(--brown); }
+
+  /* ── FORM ELEMENTS ── */
+  label { display: block; font-weight: 700; color: var(--brown); margin-bottom: 5px; font-size: 0.9em; }
+  input, select, textarea {
+    width: 100%; padding: 12px 14px;
+    border: 2.5px solid #bcaaa4; border-radius: 12px;
+    font-family: 'Nunito', sans-serif; font-size: 1em;
+    background: white; color: #333; outline: none;
+    transition: border-color 0.2s; margin-bottom: 14px;
+  }
+  input:focus, select:focus, textarea:focus { border-color: var(--sky); box-shadow: 0 0 0 3px rgba(91,200,245,0.2); }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  /* ── CALENDAR ── */
+  .cal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .cal-header h3 { font-family: 'Fredoka One', cursive; color: var(--brown); font-size: 1.1em; }
+  .cal-nav {
+    background: var(--sky); border: none; color: white;
+    border-radius: 50%; width: 30px; height: 30px;
+    font-size: 1.1em; cursor: pointer; font-weight: 900;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .cal-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 4px; text-align: center; }
+  .cal-day-name { font-size: 0.7em; font-weight: 800; color: #888; padding: 4px 0; text-transform: uppercase; }
+  .cal-day {
+    padding: 7px 2px; border-radius: 10px;
+    font-size: 0.85em; font-weight: 700;
+    cursor: pointer; border: 2px solid transparent;
+    transition: all 0.15s; color: #555;
+  }
+  .cal-day:hover:not(.disabled):not(.empty) { background: rgba(91,200,245,0.3); border-color: var(--sky); }
+  .cal-day.selected { background: var(--sky); color: white; border-color: #29b6f6; }
+  .cal-day.today { border-color: var(--sun); }
+  .cal-day.disabled { color: #ccc; cursor: not-allowed; }
+  .cal-day.empty { cursor: default; }
+  .date-chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: var(--sky); color: white;
+    border-radius: 20px; padding: 4px 10px;
+    font-size: 0.8em; font-weight: 700; margin: 3px; cursor: pointer;
+  }
+  .date-chip:hover { background: var(--red); }
+  .date-chip::after { content: '✕'; font-size: 0.8em; }
+
+  /* ── TIME BLOCK ── */
+  .time-block { background: white; border-radius: 14px; padding: 14px; border: 2px solid #e0e0e0; margin-bottom: 14px; }
+  .time-block h4 { color: var(--brown); font-weight: 800; margin-bottom: 10px; }
+  .time-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+  .time-label { font-size: 0.85em; color: #666; font-weight: 600; min-width: 70px; }
+  input[type=time] { width: auto; min-width: 120px; margin-bottom: 0; padding: 8px 12px; }
+  .hours-display {
+    background: var(--sun); color: var(--brown);
+    border-radius: 10px; padding: 8px 14px;
+    font-family: 'Fredoka One', cursive; font-size: 1.2em;
+    text-align: center; margin-top: 10px;
+  }
+
+  /* ── CARE TYPE OPTIONS ── */
+  .care-options { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+  .care-opt {
+    border: 3px solid #e0e0e0; border-radius: 16px;
+    padding: 12px 8px; text-align: center; cursor: pointer;
+    transition: all 0.2s; background: white;
+  }
+  .care-opt:hover { border-color: var(--sky); }
+  .care-opt.selected { border-color: var(--red); background: rgba(229,57,53,0.06); }
+  .care-opt .icon { font-size: 1.8em; }
+  .care-opt .clabel { font-size: 0.75em; font-weight: 800; color: var(--brown); margin-top: 4px; }
+
+  /* ── PRICE TABLE ── */
+  .price-table { background: white; border-radius: 14px; overflow: hidden; border: 2px solid #e0e0e0; margin-bottom: 14px; }
+  .price-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; border-bottom: 1px solid #f0f0f0; font-size: 0.9em; }
+  .price-row:last-child { border-bottom: none; }
+  .price-row.total { background: var(--sun); font-family: 'Fredoka One', cursive; font-size: 1.1em; }
+  .price-key { color: #555; font-weight: 600; }
+  .price-val { font-weight: 800; color: var(--brown); }
+
+  /* ── PAYMENT BUTTONS ── */
+  .pay-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 18px; }
+  .pay-btn {
+    border: 3px solid #e0e0e0; border-radius: 18px;
+    padding: 16px 10px; text-align: center; cursor: pointer;
+    transition: all 0.2s; background: white;
+  }
+  .pay-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0,0,0,0.12); }
+  .pay-btn.selected { box-shadow: 0 4px 16px rgba(0,0,0,0.15); }
+  .pay-btn .pb-logo { font-size: 2em; margin-bottom: 6px; }
+  .pay-btn .pb-name { font-weight: 800; font-size: 0.9em; }
+  .pay-btn .pb-sub { font-size: 0.65em; color: #888; font-weight: 600; margin-top: 2px; }
+  .pb-paypal.selected  { border-color: var(--paypal-blue); background: #f0f4ff; }
+  .pb-paypal.selected .pb-name { color: var(--paypal-blue); }
+  .pb-cashapp.selected { border-color: var(--cashapp-green); background: #f0fff5; }
+  .pb-cashapp.selected .pb-name { color: #008000; }
+  .pb-square.selected  { border-color: #333; background: #f8f8f8; }
+  .pb-apple.selected   { border-color: #555; background: #f5f5f5; }
+
+  .pay-panel { display: none; animation: slideIn 0.3s ease; }
+  .pay-panel.active { display: block; }
+
+  /* ── PAYPAL ── */
+  #paypal-button-container { margin: 10px 0 14px; min-height: 55px; }
+
+  /* ── SQUARE ── */
+  #square-card-container {
+    background: white; border: 2.5px solid #bcaaa4;
+    border-radius: 12px; padding: 14px;
+    margin-bottom: 14px; min-height: 90px;
+  }
+  #sq-pay-btn {
+    width: 100%; padding: 14px;
+    background: linear-gradient(135deg, #1a1a1a, #444);
+    color: white; border: none; border-radius: 16px;
+    font-family: 'Fredoka One', cursive; font-size: 1.2em;
+    cursor: pointer; box-shadow: 0 4px 14px rgba(0,0,0,0.3); margin-bottom: 14px;
+  }
+  #sq-pay-btn:hover { transform: translateY(-2px); }
+
+  /* ── APPLE PAY ── */
+  #apple-pay-btn {
+    width: 100%; padding: 15px; background: black; color: white;
+    border: none; border-radius: 16px; font-size: 1.1em; font-weight: 800;
+    cursor: pointer; display: flex; align-items: center;
+    justify-content: center; gap: 10px;
+    font-family: 'Nunito', sans-serif; margin-bottom: 14px;
+  }
+  .apple-unavail {
+    background: #f5f5f5; border: 2px solid #e0e0e0;
+    border-radius: 14px; padding: 18px;
+    text-align: center; color: #888;
+    font-size: 0.9em; font-weight: 600; margin-bottom: 14px;
+  }
+
+  /* ── CASH APP ── */
+  .cashapp-box {
+    background: white; border-radius: 18px; padding: 20px;
+    text-align: center; border: 3px solid var(--cashapp-green); margin-bottom: 14px;
+  }
+  .cashapp-tag { font-family: 'Fredoka One', cursive; font-size: 1.7em; color: var(--cashapp-green); margin: 8px 0; }
+  .cashapp-amt {
+    font-family: 'Fredoka One', cursive; font-size: 1.9em; color: var(--brown);
+    background: var(--sun); border-radius: 12px; padding: 8px 20px;
+    display: inline-block; margin: 8px 0;
+  }
+  .cashapp-qr {
+    width: 150px; height: 150px;
+    background: #f0fff4; border: 3px dashed var(--cashapp-green);
+    border-radius: 14px; margin: 12px auto;
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; color: var(--cashapp-green);
+    font-weight: 700; font-size: 0.8em; gap: 6px;
+  }
+  .cashapp-steps { text-align: left; margin-top: 12px; }
+  .cashapp-step {
+    display: flex; gap: 10px; align-items: flex-start;
+    margin-bottom: 10px; font-size: 0.85em; color: #444; font-weight: 600;
+  }
+  .cashapp-step-n {
+    background: var(--cashapp-green); color: white; border-radius: 50%;
+    width: 22px; height: 22px; min-width: 22px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.8em; font-weight: 800;
+  }
+  .cashapp-confirm {
+    width: 100%; padding: 14px;
+    background: linear-gradient(135deg, var(--cashapp-green), #00a826);
+    color: white; border: none; border-radius: 16px;
+    font-family: 'Fredoka One', cursive; font-size: 1.2em;
+    cursor: pointer; box-shadow: 0 4px 14px rgba(0,214,50,0.3);
+  }
+  .cashapp-confirm:hover { transform: translateY(-2px); }
+
+  /* ── REVIEW / SUMMARY ── */
+  .summary-box { background: white; border-radius: 14px; padding: 14px; border: 2px solid #e0e0e0; margin-bottom: 14px; }
+  .summary-row { display: flex; justify-content: space-between; padding: 5px 0; font-size: 0.9em; border-bottom: 1px dashed #f0f0f0; }
+  .summary-row:last-child { border-bottom: none; }
+  .summary-row .sk { color: #777; }
+  .summary-row .sv { font-weight: 700; color: var(--brown); }
+
+  /* ── BUTTONS ── */
+  .btn {
+    display: block; width: 100%; padding: 14px; border: none;
+    border-radius: 16px; font-family: 'Fredoka One', cursive;
+    font-size: 1.2em; cursor: pointer; transition: all 0.2s;
+    text-align: center; margin-top: 8px;
+  }
+  .btn-primary { background: linear-gradient(135deg, var(--red), #c62828); color: white; box-shadow: 0 4px 14px rgba(229,57,53,0.4); }
+  .btn-primary:hover { transform: translateY(-2px); }
+  .btn-secondary { background: rgba(255,255,255,0.6); color: var(--brown); border: 2.5px solid var(--brown); margin-top: 10px; }
+  .btn-secondary:hover { background: rgba(255,255,255,0.9); }
+
+  /* ── NOTICE ── */
+  .notice {
+    background: rgba(255,235,59,0.3); border: 2px solid var(--sun);
+    border-radius: 12px; padding: 10px 14px;
+    margin-bottom: 14px; font-size: 0.85em; color: var(--brown); font-weight: 600;
+  }
+  .notice::before { content: '⭐ '; }
+
+  /* ── CHILDREN CARDS ── */
+  .child-card { background: white; border-radius: 14px; padding: 12px; border: 2px solid #e0e0e0; margin-bottom: 10px; position: relative; }
+  .child-card .rem-btn {
+    position: absolute; top: 8px; right: 10px;
+    background: var(--red); color: white; border: none;
+    border-radius: 50%; width: 24px; height: 24px;
+    cursor: pointer; font-size: 0.8em; font-weight: 900;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .add-child {
+    background: rgba(91,200,245,0.1); border: 2.5px dashed var(--sky);
+    border-radius: 14px; padding: 12px; text-align: center;
+    cursor: pointer; color: var(--sky); font-weight: 700;
+    font-size: 0.9em; margin-bottom: 14px;
+  }
+  .add-child:hover { background: rgba(91,200,245,0.2); }
+
+  /* ── SENDING OVERLAY ── */
+  .sending-overlay {
+    display: none; position: fixed; top: 0; left: 0;
+    width: 100%; height: 100%; background: rgba(0,0,0,0.5);
+    z-index: 999; align-items: center; justify-content: center;
+    flex-direction: column; gap: 16px;
+  }
+  .sending-overlay.active { display: flex; }
+  .sending-box { background: white; border-radius: 20px; padding: 30px; text-align: center; box-shadow: 0 8px 32px rgba(0,0,0,0.3); }
+  .sending-spinner {
+    width: 50px; height: 50px;
+    border: 5px solid #f0f0f0; border-top: 5px solid var(--sky);
+    border-radius: 50%; animation: spin 0.8s linear infinite;
+    margin: 0 auto 14px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .sending-box p { font-family: 'Fredoka One', cursive; color: var(--brown); font-size: 1.2em; }
+
+  /* ── SUCCESS ── */
+  .success-screen { text-align: center; padding: 20px 10px; }
+  .success-icon { font-size: 4em; margin-bottom: 10px; animation: bounce 0.6s ease; }
+  @keyframes bounce { 0%{transform:scale(0)} 60%{transform:scale(1.2)} 100%{transform:scale(1)} }
+  .success-screen h2 { font-family: 'Fredoka One', cursive; color: var(--grass); font-size: 2em; }
+  .success-screen p { color: #555; margin: 8px 0; font-weight: 600; }
+  .conf-num {
+    background: var(--sun); border-radius: 12px; padding: 10px 20px;
+    display: inline-block; font-family: 'Fredoka One', cursive;
+    font-size: 1.3em; color: var(--brown); margin: 12px 0;
+  }
+
+  /* ── FOOTER ── */
+  footer { text-align: center; padding: 18px; color: rgba(255,255,255,0.8); font-size: 0.8em; font-weight: 600; }
+  footer a { color: var(--sun); text-decoration: none; }
+
+  @media(max-width:420px) {
+    .row { grid-template-columns: 1fr 1fr; }
+    .pay-grid { grid-template-columns: 1fr 1fr; }
+    header h1 { font-size: 1.7em; }
+    .care-options { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Sending overlay -->
+<div class="sending-overlay" id="sendingOverlay">
+  <div class="sending-box">
+    <div class="sending-spinner"></div>
+    <p>Sending your booking...</p>
+  </div>
+</div>
+
+<header>
+  <div class="sun-icon"></div>
+  <div class="hearts">♥ ♥</div>
+  <h1>Tiny Hands Big Hearts</h1>
+  <p>☀️ Summer Drop-In Care Booking ☀️</p>
+</header>
+
+<!-- Progress Steps -->
+<div class="steps-bar">
+  <div class="step-item active" id="sitem1"><div class="step-num">1</div><div class="step-label">Family</div></div>
+  <div class="step-item" id="sitem2"><div class="step-num">2</div><div class="step-label">Children</div></div>
+  <div class="step-item" id="sitem3"><div class="step-num">3</div><div class="step-label">Schedule</div></div>
+  <div class="step-item" id="sitem4"><div class="step-num">4</div><div class="step-label">Review</div></div>
+  <div class="step-item" id="sitem5"><div class="step-num">5</div><div class="step-label">Pay</div></div>
+</div>
+
+<!-- ── STEP 1: FAMILY INFO ── -->
+<div class="card active" id="step1">
+  <div class="card-title">👨‍👩‍👧 <span>Your Family Info</span></div>
+  <div class="row">
+    <div><label>First Name *</label><input type="text" id="parentFirst" placeholder="Jane"></div>
+    <div><label>Last Name *</label><input type="text" id="parentLast" placeholder="Smith"></div>
+  </div>
+  <label>Phone Number *</label><input type="tel" id="parentPhone" placeholder="(___) ___-____">
+  <label>Email Address *</label><input type="email" id="parentEmail" placeholder="you@email.com">
+  <label>Emergency Contact Name *</label><input type="text" id="emergName" placeholder="Bob Smith">
+  <label>Emergency Contact Phone *</label><input type="tel" id="emergPhone" placeholder="(___) ___-____">
+  <label>Relationship to Emergency Contact</label>
+  <select id="emergRel">
+    <option value="">Select...</option>
+    <option>Spouse/Partner</option>
+    <option>Grandparent</option>
+    <option>Aunt/Uncle</option>
+    <option>Family Friend</option>
+    <option>Other</option>
+  </select>
+  <button class="btn btn-primary" onclick="goStep(2)">Next: Add Children →</button>
+</div>
+
+<!-- ── STEP 2: CHILDREN ── -->
+<div class="card" id="step2">
+  <div class="card-title">🧒 <span>Children's Info</span></div>
+  <div class="notice">Add each child you'll be enrolling. Rate: $8/hr per child.</div>
+  <div id="childrenContainer"></div>
+  <div class="add-child" onclick="addChild()">+ Add Another Child</div>
+  <div class="row">
+    <button class="btn btn-secondary" onclick="goStep(1)">← Back</button>
+    <button class="btn btn-primary" onclick="goStep(3)">Next: Schedule →</button>
+  </div>
+</div>
+
+<!-- ── STEP 3: SCHEDULE ── -->
+<div class="card" id="step3">
+  <div class="card-title">📅 <span>Pick Days & Times</span></div>
+  <label>Type of Care *</label>
+  <div class="care-options">
+    <div class="care-opt" onclick="selectCare(this,'Weekday')"><div class="icon">📚</div><div class="clabel">Weekday Drop-In</div></div>
+    <div class="care-opt" onclick="selectCare(this,'Weekend')"><div class="icon">🎉</div><div class="clabel">Weekend Care</div></div>
+    <div class="care-opt" onclick="selectCare(this,'Holiday')"><div class="icon">🎊</div><div class="clabel">Holiday Care</div></div>
+  </div>
+
+  <label>Select Date(s) * <small style="font-weight:normal;color:#888">(tap to select)</small></label>
+  <div style="background:white;border-radius:16px;padding:14px;border:2px solid #e0e0e0;margin-bottom:14px;">
+    <div class="cal-header">
+      <button class="cal-nav" onclick="prevMonth()">‹</button>
+      <h3 id="calTitle"></h3>
+      <button class="cal-nav" onclick="nextMonth()">›</button>
+    </div>
+    <div class="cal-grid" id="calGrid"></div>
+    <div id="selectedDates" style="margin-top:8px;"></div>
+  </div>
+
+  <div class="time-block">
+    <h4>⏰ Drop-off & Pick-up Times</h4>
+    <div class="time-row">
+      <span class="time-label">🚗 Drop-off:</span>
+      <input type="time" id="dropTime" value="07:30" onchange="calcHours()">
+    </div>
+    <div class="time-row">
+      <span class="time-label">🏠 Pick-up:</span>
+      <input type="time" id="pickTime" value="17:00" onchange="calcHours()">
+    </div>
+    <div class="hours-display" id="hoursDisplay">–</div>
+  </div>
+
+  <label>Special Notes / Allergies</label>
+  <textarea id="notes" rows="3" placeholder="Allergies, nap schedule, special instructions..."></textarea>
+
+  <div class="row">
+    <button class="btn btn-secondary" onclick="goStep(2)">← Back</button>
+    <button class="btn btn-primary" onclick="goStep(4)">Review →</button>
+  </div>
+</div>
+
+<!-- ── STEP 4: REVIEW ── -->
+<div class="card" id="step4">
+  <div class="card-title">✅ <span>Review Booking</span></div>
+  <div class="summary-box" id="reviewBox"></div>
+  <div class="price-table" id="priceTable"></div>
+  <div class="notice">24-hour cancellation policy applies. Full refund if cancelled 24+ hours in advance.</div>
+  <div class="row">
+    <button class="btn btn-secondary" onclick="goStep(3)">← Back</button>
+    <button class="btn btn-primary" onclick="goStep(5)">Choose Payment →</button>
+  </div>
+</div>
+
+<!-- ── STEP 5: PAYMENT ── -->
+<div class="card" id="step5">
+  <div class="card-title">💳 <span>Secure Payment</span></div>
+  <div class="price-table" id="payPriceBox"></div>
+
+  <label>How would you like to pay?</label>
+  <div class="pay-grid">
+    <div class="pay-btn pb-paypal" onclick="showPanel(this,'paypal')">
+      <div class="pb-logo">🅿</div>
+      <div class="pb-name">PayPal</div>
+      <div class="pb-sub">Instant &amp; secure</div>
+    </div>
+    <div class="pay-btn pb-cashapp" onclick="showPanel(this,'cashapp')">
+      <div class="pb-logo">💚</div>
+      <div class="pb-name">Cash App</div>
+      <div class="pb-sub" id="cashapp-tag-label">$CashTag</div>
+    </div>
+    <div class="pay-btn pb-square" onclick="showPanel(this,'square')">
+      <div class="pb-logo">⬛</div>
+      <div class="pb-name">Card (Square)</div>
+      <div class="pb-sub">Visa / MC / Amex</div>
+    </div>
+    <div class="pay-btn pb-apple" onclick="showPanel(this,'apple')">
+      <div class="pb-logo">🍎</div>
+      <div class="pb-name">Apple Pay</div>
+      <div class="pb-sub">Face ID / Touch ID</div>
+    </div>
+  </div>
+
+  <!-- PayPal Panel -->
+  <div class="pay-panel" id="panel-paypal">
+    <p style="font-size:0.85em;color:#555;font-weight:600;margin-bottom:10px;">Click below to complete payment securely through PayPal.</p>
+    <div id="paypal-button-container"></div>
+  </div>
+
+  <!-- CashApp Panel -->
+  <div class="pay-panel" id="panel-cashapp">
+    <div class="cashapp-box">
+      <p style="font-weight:800;font-size:1em;color:#333;">Send payment to</p>
+      <div class="cashapp-tag" id="ca-tag-display">Loading...</div>
+      <div class="cashapp-amt" id="ca-amount">$0.00</div>
+      <div class="cashapp-qr">
+        <!-- Replace this div with an <img> tag pointing to your CashApp QR code image -->
+        <!-- Example: <img src="images/cashapp-qr.png" alt="CashApp QR" style="width:150px;height:150px;border-radius:10px;"> -->
+        <span style="font-size:2em;">📱</span>
+        <span>Add your QR code<br>image in config.js</span>
+      </div>
+      <div class="cashapp-steps">
+        <div class="cashapp-step"><div class="cashapp-step-n">1</div><div>Open Cash App on your phone</div></div>
+        <div class="cashapp-step"><div class="cashapp-step-n">2</div><div>Search <strong id="ca-tag-step">$CashTag</strong> · send <strong id="ca-step-amt">$0.00</strong></div></div>
+        <div class="cashapp-step"><div class="cashapp-step-n">3</div><div>Add your <strong>name + booking dates</strong> in the memo</div></div>
+        <div class="cashapp-step"><div class="cashapp-step-n">4</div><div>Tap below — we'll confirm within 1 hour!</div></div>
+      </div>
+      <button class="cashapp-confirm" onclick="handleSuccess('Cash App – Pending confirmation')">✅ I've Sent the Payment!</button>
+    </div>
+  </div>
+
+  <!-- Square Card Panel -->
+  <div class="pay-panel" id="panel-square">
+    <p style="font-size:0.85em;color:#555;font-weight:600;margin-bottom:10px;">Enter your card details. Processed securely by Square — PCI compliant.</p>
+    <div id="square-card-container"></div>
+    <button id="sq-pay-btn" onclick="handleSquare()">⬛ Pay with Card</button>
+  </div>
+
+  <!-- Apple Pay Panel -->
+  <div class="pay-panel" id="panel-apple">
+    <div id="apple-pay-area">
+      <div class="apple-unavail">
+        🍎 <strong>Apple Pay requires Safari on an Apple device.</strong><br><br>
+        Open this page in Safari on your iPhone, iPad, or Mac to use Apple Pay.
+      </div>
+    </div>
+  </div>
+
+  <div class="notice" style="margin-top:10px;">🔒 All payments are encrypted and secure. Card numbers are never stored.</div>
+  <button class="btn btn-secondary" onclick="goStep(4)" style="margin-top:10px;">← Back</button>
+</div>
+
+<!-- ── STEP 6: SUCCESS ── -->
+<div class="card" id="step6">
+  <div class="success-screen">
+    <div class="success-icon">🎊</div>
+    <h2>Booking Confirmed!</h2>
+    <p>Thank you, <strong id="confName"></strong>!</p>
+    <div class="conf-num" id="confNum"></div>
+    <p>A confirmation email has been sent to <strong id="confEmail"></strong></p>
+    <p id="confPay" style="color:#888;font-size:0.9em;margin-top:6px;"></p>
+    <p style="margin-top:14px;font-size:0.85em;color:#888;">
+      Questions? Call <a href="tel:8438581217" style="color:var(--red);font-weight:800;">843-858-1217</a>
+    </p>
+    <p style="font-size:0.85em;color:#888;">
+      Find us on <a href="https://facebook.com/TinyHandsBigHeartsDaycare" style="color:#1877f2;font-weight:800;" target="_blank" rel="noopener">Facebook @ Tiny Hands Big Hearts</a>
+    </p>
+    <button class="btn btn-primary" style="margin-top:20px;" onclick="location.reload()">📅 Book Another Day</button>
+  </div>
+</div>
+
+<footer>
+  📞 <a href="tel:8438581217">843-858-1217</a> &nbsp;|&nbsp;
+  <a href="mailto:tbighearts@gmail.com">tbighearts@gmail.com</a> &nbsp;|&nbsp;
+  <a href="https://facebook.com/TinyHandsBigHeartsDaycare" target="_blank" rel="noopener">Facebook</a>
+</footer>
+
+<script>
+// ============================================================
+// LOAD CONFIG & INJECT PAYPAL SDK
+// Config values come from config.js (loaded in <head>)
+// ============================================================
+(function loadPayPalSDK() {
+  if (!window.THBH_CONFIG) { console.warn('config.js not loaded'); return; }
+  const clientId = window.THBH_CONFIG.PAYPAL_CLIENT_ID;
+  if (!clientId || clientId === 'YOUR_PAYPAL_CLIENT_ID') return;
+  const s = document.createElement('script');
+  s.src = `https://www.paypal.com/sdk/js?client-id=${clientId}&currency=USD`;
+  s.setAttribute('data-sdk-integration-source', 'button-factory');
+  document.head.appendChild(s);
+})();
+
+// Populate Cash App tag from config
+document.addEventListener('DOMContentLoaded', () => {
+  const cfg = window.THBH_CONFIG || {};
+  const tag = cfg.CASHAPP_TAG || '$YourCashTag';
+  document.getElementById('cashapp-tag-label').textContent = tag;
+  document.getElementById('ca-tag-display').textContent = tag;
+  document.getElementById('ca-tag-step').textContent = tag;
+});
+
+// ============================================================
+// STATE
+// ============================================================
+const S = {
+  step: 1,
+  children: [],
+  careType: '',
+  dates: [],
+  drop: '07:30',
+  pick: '17:00',
+  hours: 0,
+  rate: 8,
+  calY: new Date().getFullYear(),
+  calM: new Date().getMonth(),
+  total: 0,
+  name: '',
+  ppDone: false
+};
+
+const DAYS   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const MONTHS = ['January','February','March','April','May','June',
+                'July','August','September','October','November','December'];
+
+// ============================================================
+// NAVIGATION
+// ============================================================
+function goStep(n) {
+  if (n > S.step && !validate(S.step)) return;
+  document.getElementById('step' + S.step).classList.remove('active');
+  const prev = document.getElementById('sitem' + S.step);
+  prev.classList.remove('active');
+  if (n > S.step) prev.classList.add('done');
+  S.step = n;
+  document.getElementById('step' + n).classList.add('active');
+  const cur = document.getElementById('sitem' + n);
+  cur.classList.add('active');
+  cur.classList.remove('done');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  if (n === 3) renderCal();
+  if (n === 4) buildReview();
+  if (n === 5) buildPayStep();
+}
+
+function validate(s) {
+  const g = id => document.getElementById(id)?.value.trim();
+  if (s === 1) {
+    if (!g('parentFirst') || !g('parentLast') || !g('parentPhone') ||
+        !g('parentEmail') || !g('emergName') || !g('emergPhone')) {
+      alert('Please fill in all required (*) fields.');
+      return false;
+    }
+    // Basic email check
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(g('parentEmail'))) {
+      alert('Please enter a valid email address.');
+      return false;
+    }
+  }
+  if (s === 2) {
+    if (!S.children.length) { alert('Please add at least one child.'); return false; }
+    for (const c of S.children) {
+      if (!c.name || !c.dob || !c.gender) {
+        alert('Please complete all child fields (name, DOB, gender).');
+        return false;
+      }
+    }
+  }
+  if (s === 3) {
+    if (!S.careType) { alert('Please select a care type.'); return false; }
+    if (!S.dates.length) { alert('Please select at least one date.'); return false; }
+    if (S.hours <= 0) { alert('Pick-up time must be after drop-off time.'); return false; }
+  }
+  return true;
+}
+
+// ============================================================
+// CHILDREN
+// ============================================================
+function addChild() {
+  S.children.push({ id: Date.now(), name: '', dob: '', gender: '', allergies: '' });
+  renderKids();
+}
+function removeChild(id) {
+  S.children = S.children.filter(c => c.id !== id);
+  renderKids();
+}
+function updateChild(id, f, v) {
+  const c = S.children.find(c => c.id === id);
+  if (c) c[f] = v;
+}
+function renderKids() {
+  const el = document.getElementById('childrenContainer');
+  if (!S.children.length) {
+    el.innerHTML = '<p style="text-align:center;color:#aaa;padding:10px;">No children added yet.</p>';
+    return;
+  }
+  el.innerHTML = S.children.map((c, i) => `
+    <div class="child-card">
+      <button class="rem-btn" onclick="removeChild(${c.id})">✕</button>
+      <label>Child ${i + 1} – Full Name *</label>
+      <input type="text" value="${escHtml(c.name)}" placeholder="Child's name"
+             oninput="updateChild(${c.id},'name',this.value)">
+      <div class="row">
+        <div>
+          <label>Date of Birth *</label>
+          <input type="date" value="${c.dob}"
+                 onchange="updateChild(${c.id},'dob',this.value)"
+                 max="${new Date().toISOString().split('T')[0]}">
+        </div>
+        <div>
+          <label>Gender *</label>
+          <select onchange="updateChild(${c.id},'gender',this.value)">
+            <option ${!c.gender ? 'selected' : ''} value="">Select...</option>
+            <option ${c.gender === 'Boy'   ? 'selected' : ''}>Boy</option>
+            <option ${c.gender === 'Girl'  ? 'selected' : ''}>Girl</option>
+            <option ${c.gender === 'Other' ? 'selected' : ''}>Other</option>
+          </select>
+        </div>
+      </div>
+      <label>Allergies / Medical Notes</label>
+      <input type="text" value="${escHtml(c.allergies)}"
+             placeholder="None, or describe..."
+             oninput="updateChild(${c.id},'allergies',this.value)">
+    </div>`).join('');
+}
+
+function escHtml(s) {
+  return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Init with one blank child
+renderKids();
+addChild();
+
+// ============================================================
+// CARE TYPE
+// ============================================================
+function selectCare(el, t) {
+  document.querySelectorAll('.care-opt').forEach(e => e.classList.remove('selected'));
+  el.classList.add('selected');
+  S.careType = t;
+}
+
+// ============================================================
+// CALENDAR
+// ============================================================
+function renderCal() {
+  document.getElementById('calTitle').textContent = MONTHS[S.calM] + ' ' + S.calY;
+  const grid  = document.getElementById('calGrid');
+  grid.innerHTML = DAYS.map(d => `<div class="cal-day-name">${d}</div>`).join('');
+  const first = new Date(S.calY, S.calM, 1).getDay();
+  const total = new Date(S.calY, S.calM + 1, 0).getDate();
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+
+  for (let i = 0; i < first; i++) grid.innerHTML += `<div class="cal-day empty"></div>`;
+  for (let d = 1; d <= total; d++) {
+    const dt  = new Date(S.calY, S.calM, d);
+    const key = dkey(dt);
+    const past = dt < today;
+    const sel  = S.dates.includes(key);
+    const tod  = dt.getTime() === today.getTime();
+    const cls  = 'cal-day' + (past ? ' disabled' : '') + (sel ? ' selected' : '') + (tod ? ' today' : '');
+    grid.innerHTML += `<div class="${cls}" ${past ? '' : `onclick="toggleDate('${key}')"`}>${d}</div>`;
+  }
+  renderChips();
+}
+
+function dkey(d) { return d.toISOString().split('T')[0]; }
+
+function toggleDate(k) {
+  const i = S.dates.indexOf(k);
+  i >= 0 ? S.dates.splice(i, 1) : S.dates.push(k);
+  S.dates.sort();
+  renderCal();
+}
+
+function renderChips() {
+  const el = document.getElementById('selectedDates');
+  el.innerHTML = S.dates.length
+    ? '<div style="font-size:0.8em;font-weight:700;color:#888;margin-bottom:4px;">Selected:</div>'
+    : '';
+  S.dates.forEach(k => {
+    const d = new Date(k + 'T12:00:00');
+    el.innerHTML += `<span class="date-chip" onclick="toggleDate('${k}')">
+      ${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+    </span>`;
+  });
+}
+
+function prevMonth() { S.calM === 0 ? (S.calM = 11, S.calY--) : S.calM--; renderCal(); }
+function nextMonth() { S.calM === 11 ? (S.calM = 0,  S.calY++) : S.calM++; renderCal(); }
+
+// ============================================================
+// HOURS
+// ============================================================
+function calcHours() {
+  S.drop = document.getElementById('dropTime').value;
+  S.pick = document.getElementById('pickTime').value;
+  const [dh, dm] = S.drop.split(':').map(Number);
+  const [ph, pm] = S.pick.split(':').map(Number);
+  const diff = (ph * 60 + pm) - (dh * 60 + dm);
+  S.hours = diff > 0 ? +(diff / 60).toFixed(2) : 0;
+  const el = document.getElementById('hoursDisplay');
+  el.textContent = S.hours > 0
+    ? `${S.hours} hour${S.hours !== 1 ? 's' : ''} per day`
+    : 'Pick-up must be after drop-off';
+  el.style.background = S.hours > 0 ? 'var(--sun)' : '#ffcdd2';
+}
+calcHours();
+
+// ============================================================
+// REVIEW
+// ============================================================
+function fmtT(t) {
+  const [h, m] = t.split(':').map(Number);
+  return `${h % 12 || 12}:${String(m).padStart(2,'0')} ${h >= 12 ? 'PM' : 'AM'}`;
+}
+
+function priceHTML(nC, nD, tot) {
+  return `
+    <div class="price-row"><span class="price-key">Rate per child / hr</span><span class="price-val">$${S.rate}.00</span></div>
+    <div class="price-row"><span class="price-key">Number of children</span><span class="price-val">${nC}</span></div>
+    <div class="price-row"><span class="price-key">Hours per day</span><span class="price-val">${S.hours} hrs</span></div>
+    <div class="price-row"><span class="price-key">Days booked</span><span class="price-val">${nD} day${nD !== 1 ? 's' : ''}</span></div>
+    <div class="price-row total"><span class="price-key">Total Due</span><span class="price-val">$${tot.toFixed(2)}</span></div>`;
+}
+
+function buildReview() {
+  const n  = document.getElementById('parentFirst').value + ' ' + document.getElementById('parentLast').value;
+  const nC = S.children.length;
+  const nD = S.dates.length;
+  const tot = +(S.rate * S.hours * nC * nD).toFixed(2);
+  S.total = tot;
+  S.name  = n;
+  document.getElementById('reviewBox').innerHTML = `
+    <div class="summary-row"><span class="sk">Parent</span><span class="sv">${escHtml(n)}</span></div>
+    <div class="summary-row"><span class="sk">Phone</span><span class="sv">${escHtml(document.getElementById('parentPhone').value)}</span></div>
+    <div class="summary-row"><span class="sk">Email</span><span class="sv">${escHtml(document.getElementById('parentEmail').value)}</span></div>
+    <div class="summary-row"><span class="sk">Children</span><span class="sv">${S.children.map(c => escHtml(c.name || '?')).join(', ')}</span></div>
+    <div class="summary-row"><span class="sk">Care Type</span><span class="sv">${S.careType}</span></div>
+    <div class="summary-row"><span class="sk">Dates</span><span class="sv">${S.dates.map(k => new Date(k + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })).join(', ')}</span></div>
+    <div class="summary-row"><span class="sk">Drop-off</span><span class="sv">${fmtT(S.drop)}</span></div>
+    <div class="summary-row"><span class="sk">Pick-up</span><span class="sv">${fmtT(S.pick)}</span></div>
+    <div class="summary-row"><span class="sk">Notes</span><span class="sv">${escHtml(document.getElementById('notes').value) || 'None'}</span></div>`;
+  document.getElementById('priceTable').innerHTML = priceHTML(nC, nD, tot);
+}
+
+// ============================================================
+// PAYMENT STEP
+// ============================================================
+function buildPayStep() {
+  const nC  = S.children.length;
+  const nD  = S.dates.length;
+  document.getElementById('payPriceBox').innerHTML = priceHTML(nC, nD, S.total);
+  document.getElementById('ca-amount').textContent  = `$${S.total.toFixed(2)}`;
+  document.getElementById('ca-step-amt').textContent = `$${S.total.toFixed(2)}`;
+}
+
+function showPanel(el, method) {
+  document.querySelectorAll('.pay-btn').forEach(b => b.classList.remove('selected'));
+  el.classList.add('selected');
+  document.querySelectorAll('.pay-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-' + method).classList.add('active');
+  if (method === 'paypal' && !S.ppDone) { initPayPal(); S.ppDone = true; }
+  if (method === 'apple')  initApplePay();
+  if (method === 'square') initSquare();
+}
+
+// ============================================================
+// PAYPAL
+// ============================================================
+function initPayPal() {
+  if (typeof paypal === 'undefined') {
+    document.getElementById('paypal-button-container').innerHTML =
+      '<p style="background:#fff3e0;padding:12px;border-radius:10px;color:#bf360c;font-size:0.85em;font-weight:700;">⚠️ Add your PayPal Client ID to config.js to enable PayPal payments.</p>';
+    return;
+  }
+  paypal.Buttons({
+    style: { layout: 'vertical', color: 'blue', shape: 'rect', label: 'pay', height: 50 },
+    createOrder: (data, actions) => actions.order.create({
+      purchase_units: [{ description: 'Tiny Hands Big Hearts Daycare', amount: { value: S.total.toFixed(2) } }]
+    }),
+    onApprove: (data, actions) => actions.order.capture().then(d => handleSuccess('PayPal · Order #' + d.id)),
+    onError: err => { alert('PayPal error. Please try another method.'); console.error(err); }
+  }).render('#paypal-button-container');
+}
+
+// ============================================================
+// SQUARE
+// ============================================================
+let squareCard     = null;
+let squarePayments = null;
+
+async function initSquare() {
+  const cfg = window.THBH_CONFIG || {};
+  if (typeof Square === 'undefined') return;
+  if (!cfg.SQUARE_APP_ID || cfg.SQUARE_APP_ID === 'YOUR_SQUARE_APP_ID') {
+    document.getElementById('square-card-container').innerHTML =
+      '<p style="color:#e53935;font-size:0.85em;font-weight:700;padding:10px;">⚠️ Add your Square App ID and Location ID to config.js.</p>';
+    return;
+  }
+  try {
+    squarePayments = Square.payments(cfg.SQUARE_APP_ID, cfg.SQUARE_LOCATION_ID);
+    squareCard = await squarePayments.card();
+    await squareCard.attach('#square-card-container');
+  } catch (e) {
+    console.error('Square init error:', e);
+    document.getElementById('square-card-container').innerHTML =
+      '<p style="color:#e53935;font-size:0.85em;font-weight:700;padding:10px;">⚠️ Card form failed to load. Please try another payment method.</p>';
+  }
+}
+
+async function handleSquare() {
+  if (!squareCard) { alert('Card form is not ready yet. Please wait a moment and try again.'); return; }
+  try {
+    document.getElementById('sendingOverlay').classList.add('active');
+    const result = await squareCard.tokenize();
+    if (result.status === 'OK') {
+      // In production: send result.token to your server-side Square Payments API call
+      // See: https://developer.squareup.com/docs/web-payments/take-card-payment
+      await handleSuccess('Square Card · ' + (result.details?.card?.brand || 'Card') + ' ending ' + (result.details?.card?.last4 || '****'));
+    } else {
+      document.getElementById('sendingOverlay').classList.remove('active');
+      alert('Card error: ' + (result.errors?.[0]?.message || 'Please check your card details.'));
+    }
+  } catch (e) {
+    document.getElementById('sendingOverlay').classList.remove('active');
+    alert('Payment error. Please try again.');
+    console.error(e);
+  }
+}
+
+// ============================================================
+// APPLE PAY
+// ============================================================
+function initApplePay() {
+  const area = document.getElementById('apple-pay-area');
+  if (window.ApplePaySession && ApplePaySession.canMakePayments()) {
+    area.innerHTML = `<button id="apple-pay-btn" onclick="processApplePay()">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="white">
+        <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
+      </svg>
+      Pay $${S.total.toFixed(2)} with Apple Pay
+    </button>`;
+  }
+}
+
+function processApplePay() {
+  if (!window.ApplePaySession) return;
+  const req = {
+    countryCode: 'US', currencyCode: 'USD',
+    supportedNetworks: ['visa','masterCard','amex','discover'],
+    merchantCapabilities: ['supports3DS'],
+    total: { label: 'Tiny Hands Big Hearts', amount: S.total.toFixed(2) }
+  };
+  const sess = new ApplePaySession(3, req);
+  // NOTE: merchant validation requires a server-side endpoint
+  // See: https://developer.apple.com/documentation/apple_pay_on_the_web
+  sess.onvalidatemerchant = () => { alert('Apple Pay merchant validation requires a server. See Apple developer docs.'); sess.abort(); };
+  sess.onpaymentauthorized = e => { sess.completePayment(ApplePaySession.STATUS_SUCCESS); handleSuccess('Apple Pay'); };
+  sess.begin();
+}
+
+// ============================================================
+// SEND EMAIL & SHOW SUCCESS
+// ============================================================
+async function handleSuccess(method) {
+  const cfg  = window.THBH_CONFIG || {};
+  const conf = 'THB' + Math.floor(100000 + Math.random() * 900000);
+  const parentEmail = document.getElementById('parentEmail').value;
+  const notes       = document.getElementById('notes').value || 'None';
+
+  document.getElementById('sendingOverlay').classList.add('active');
+
+  // Build Formspree payload
+  const formData = new FormData();
+  formData.append('email',             parentEmail);
+  formData.append('_subject',          `New Booking #${conf} — ${S.name}`);
+  formData.append('Confirmation #',    conf);
+  formData.append('Parent Name',       S.name);
+  formData.append('Parent Phone',      document.getElementById('parentPhone').value);
+  formData.append('Parent Email',      parentEmail);
+  formData.append('Emergency Contact', `${document.getElementById('emergName').value} — ${document.getElementById('emergPhone').value} (${document.getElementById('emergRel').value || 'Not specified'})`);
+  formData.append('Children',          S.children.map((c,i) =>
+    `Child ${i+1}: ${c.name} | DOB: ${c.dob} | Gender: ${c.gender} | Allergies: ${c.allergies || 'None'}`
+  ).join(' | '));
+  formData.append('Care Type',         S.careType);
+  formData.append('Dates',             S.dates.map(k => new Date(k + 'T12:00:00').toLocaleDateString('en-US', { weekday:'short', month:'long', day:'numeric', year:'numeric' })).join(', '));
+  formData.append('Drop-off Time',     fmtT(S.drop));
+  formData.append('Pick-up Time',      fmtT(S.pick));
+  formData.append('Hours Per Day',     S.hours + ' hrs');
+  formData.append('Number of Children',S.children.length);
+  formData.append('Rate',              '$' + S.rate + '/hr per child');
+  formData.append('Total Due',         '$' + S.total.toFixed(2));
+  formData.append('Payment Method',    method);
+  formData.append('Notes',             notes);
+
+  if (cfg.FORMSPREE_URL && cfg.FORMSPREE_URL !== 'YOUR_FORMSPREE_URL') {
+    try {
+      await fetch(cfg.FORMSPREE_URL, {
+        method: 'POST', body: formData, headers: { 'Accept': 'application/json' }
+      });
+    } catch (e) { console.warn('Formspree error:', e); }
+  } else {
+    console.warn('Formspree URL not set in config.js — booking not emailed.');
+  }
+
+  document.getElementById('sendingOverlay').classList.remove('active');
+
+  // Show success screen
+  document.getElementById('confName').textContent  = S.name;
+  document.getElementById('confNum').textContent   = 'Confirmation # ' + conf;
+  document.getElementById('confEmail').textContent = parentEmail;
+  document.getElementById('confPay').textContent   = '💳 Payment: ' + method;
+  document.getElementById('step' + S.step).classList.remove('active');
+  document.getElementById('sitem' + S.step).classList.add('done');
+  document.getElementById('step6').classList.add('active');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+</script>
+</body>
+</html>
